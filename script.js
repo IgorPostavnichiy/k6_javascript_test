@@ -37,10 +37,11 @@ function crawlSimilarApps(packageName, attempts) {
     return;
   }
 
+  appsVisited.add(1);
+
   for (const appPackage of similarApps) {
     if (appPackage !== packageName) {
       sleep(5);
-      appsVisited.add(1);
       similarAppsFound.add(1);
       crawlSimilarApps(appPackage, attempts + 1);
     }
