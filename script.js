@@ -18,8 +18,7 @@ async function crawlSimilarApps(packageName) {
     'is status 200': (r) => r.status === 200,
   });
 
-  const k6Browser = new k6.Browser();
-  const context = k6Browser.newContext();
+  const context = new BrowserContext();
   const page = context.newPage();
 
   await page.goto(BASE_URL);
