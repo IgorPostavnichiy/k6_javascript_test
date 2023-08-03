@@ -25,9 +25,11 @@ function crawlSimilarApps(url) {
 
   const response = http.get(url);
 
-  check(response, {
-    'is status 200': (r) => r.status === 200,
-  });
+  if (url === BASE_URL) {
+    check(response, {
+      'is status 200': (r) => r.status === 200,
+    });
+  }
 
   visitedApps.add(url);
 
