@@ -1,11 +1,3 @@
-import http from 'k6/http';
-import { check, sleep, Counter } from 'k6';
-
-export let options = {
-  vus: 1,
-  iterations: 100,
-};
-
 let appsVisited = 0;
 let similarAppsFound = new Counter('similar_apps_found');
 
