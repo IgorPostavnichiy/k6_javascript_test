@@ -2,24 +2,26 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter } from 'k6/metrics';
 
+let numIterations = 100;
+
 export let options = {
   vus: 1,
-  iterations: 100, // Указываем, что нужно выполнить 100 итераций
+  iterations: 1, // Используем одну итерацию, так как мы будем делать клики внутри одной итерации
+  duration: '10m', // Увеличиваем длительность выполнения до 10 минут
 };
 
-// Создаем счетчик для успешных кликов
 export let successfulLoads = new Counter('Successful Loads');
 
 export default function () {
   const baseAppId = 'com.sinyee.babybus.world';
-  let appsVisited = 0; // Счетчик для общего количества кликов
+  let appsVisited = 0;
 
   crawlSimilarApps(baseAppId, appsVisited);
 }
 
 function crawlSimilarApps(packageName, appsVisited) {
-  if (appsVisited >= options.iterations) {
-    console.log(`Reached ${options.iterations} apps. Stopping...`);
+  if (appsVisited >= numIterations) {
+    console.log(`Reached ${numIterations} apps. Stopping...`);
     return;
   }
 
@@ -43,15 +45,13 @@ function crawlSimilarApps(packageName, appsVisited) {
       appsVisited++;
       crawlSimilarApps(appPackage, appsVisited);
 
-      // Проверяем, достигнуто ли максимальное количество кликов
-      if (appsVisited >= options.iterations) {
-        console.log(`Reached ${options.iterations} apps. Stopping...`);
+      if (appsVisited >= numIterations) {
+        console.log(`Reached ${numIterations} apps. Stopping...`);
         return;
       }
     }
   }
 
-  // Увеличиваем счетчик успешных кликов при успешной загрузке страницы
   successfulLoads.add(1);
 }
 
