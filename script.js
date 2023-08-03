@@ -8,8 +8,8 @@ let clickCounter = 0;
 
 export let options = {
   vus: 1,
-  iterations: numIterations,
-  duration: '20m',
+  iterations: numIterations, // Устанавливаем количество итераций прямо здесь
+  duration: null, // Убираем указание длительности, чтобы использовать только количество итераций
 };
 
 export let successfulLoads = new Counter('Successful Loads');
@@ -27,12 +27,12 @@ function crawlSimilarApps(packageName) {
   successfulLoads.add(1);
 
   appCounter++;
-  console.log(`Checked app: ${packageName}, Total apps checked: ${appCounter}`);
+  console.log(`Проверено приложение: ${packageName}, Всего проверено приложений: ${appCounter}`);
 
   const similarApps = extractSimilarApps(response.body);
 
   if (similarApps.length === 0 || clickCounter >= 100) {
-    console.log('Finished checking apps.');
+    console.log('Завершение проверки приложений.');
     return;
   }
 
