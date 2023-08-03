@@ -1,20 +1,22 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 
 export let options = {
   vus: 1,
   iterations: 100,
 };
 
-export default function () {
-  const baseAppId = 'com.example.app'; // Замените на интересующее вас приложение
+let appsVisited = 0;
 
-  crawlSimilarApps(baseAppId, 0); // Запускаем краулер, начиная с базового приложения
+export default function () {
+  const baseAppId = 'com.sinyee.babybus.world';
+
+  crawlSimilarApps(baseAppId);
 }
 
-function crawlSimilarApps(packageName, attempts) {
-  if (attempts >= 100) {
-    console.log('Reached 100 clicks. Stopping...');
+function crawlSimilarApps(packageName) {
+  if (appsVisited >= 100) {
+    console.log('Reached 100 apps. Stopping...');
     return;
   }
 
@@ -34,7 +36,9 @@ function crawlSimilarApps(packageName, attempts) {
 
   for (const appPackage of similarApps) {
     if (appPackage !== packageName) {
-      crawlSimilarApps(appPackage, attempts + 1);
+      sleep(5);
+      appsVisited++;
+      crawlSimilarApps(appPackage);
     }
   }
 }
@@ -47,6 +51,7 @@ function extractSimilarApps(responseBody) {
   while ((match = regex.exec(responseBody)) !== null) {
     if (match[1]) {
       similarApps.push(match[1]);
+      console.log(`Found similar app: ${match[1]}`);
     }
   }
 
