@@ -1,58 +1,56 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 
 export let options = {
-  vus: 10,
+  vus: 1,
   iterations: 100,
 };
 
+const BASE_URL = 'https://play.google.com/store/apps/details?id=com.example.app';
+const visitedApps = new Set();
+
 export default function () {
-  crawlSimilarApps('com.example.app');
+  crawlSimilarApps(BASE_URL);
 }
 
-async function crawlSimilarApps(packageName) {
-  const BASE_URL = `https://play.google.com/store/apps/details?id=${packageName}`;
-  const response = http.get(BASE_URL);
+function crawlSimilarApps(url) {
+  if (visitedApps.size >= 100) {
+    console.log('Crawling completed.');
+    return;
+  }
+
+  if (visitedApps.has(url)) {
+    return;
+  }
+
+  const response = http.get(url);
 
   check(response, {
     'is status 200': (r) => r.status === 200,
   });
 
-  const context = new BrowserContext();
-  const page = context.newPage();
+  visitedApps.add(url);
 
-  await page.goto(BASE_URL);
-
-  const similarGamesLink = page.locator('.WHE7ib a');
-  await Promise.all([page.waitForNavigation(), similarGamesLink.click()]);
-
-  const captchaElement = page.locator('.captcha');
-  if (await captchaElement.isVisible()) {
-    console.log('Captcha detected');
-    return;
-  }
-
-  const similarApps = await extractSimilarApps(page);
+  const similarApps = extractSimilarApps(response.body);
   for (const appPackage of similarApps) {
-    if (appPackage !== packageName) {
-      crawlSimilarApps(appPackage);
+    const appUrl = `https://play.google.com/store/apps/details?id=${appPackage}`;
+    if (!visitedApps.has(appUrl)) {
+      crawlSimilarApps(appUrl);
     }
   }
 
-  page.close();
-  context.close();
+  // Wait for a short period between requests to avoid overwhelming the server
+  sleep(2);
 }
 
-async function extractSimilarApps(page) {
-  await page.waitForSelector('.WHE7ib a');
-  const similarAppsLinks = page.locatorAll('.WHE7ib a');
+function extractSimilarApps(html) {
+  const regex = /<a\s+class="Rb\+Ml"\s+href="\/store\/apps\/details\?id=([\w.]+)/g;
+  let match;
   const similarApps = [];
-  for (const link of similarAppsLinks) {
-    const href = await link.getAttribute('href');
-    const match = href.match(/id=([\w.]+)/);
-    if (match && match[1]) {
-      similarApps.push(match[1]);
-    }
+
+  while ((match = regex.exec(html))) {
+    similarApps.push(match[1]);
   }
+
   return similarApps;
 }
