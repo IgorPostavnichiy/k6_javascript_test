@@ -8,7 +8,7 @@ let clickCounter = 0;
 
 export let options = {
   vus: 1,
-  duration: '20m', // Устанавливаем длительность выполнения теста
+  duration: '20m', // Set the duration of the test execution
 };
 
 export let successfulLoads = new Counter('Successful Loads');
@@ -20,7 +20,7 @@ export default function () {
 
 function crawlSimilarApps(packageName) {
   if (successfulLoads.value >= 100) {
-    console.log('Достигнуто 100 успешных проверок. Завершение теста.');
+    console.log('Achieved 100 successful tests. Test completion.');
     return;
   }
 
@@ -31,7 +31,7 @@ function crawlSimilarApps(packageName) {
   successfulLoads.add(1);
 
   appCounter++;
-  console.log(`Проверено приложение: ${packageName}, Всего проверено приложений: ${appCounter}`);
+  console.log(`Application tested: ${packageName}, Total applications tested: ${appCounter}`);
 
   const similarApps = extractSimilarApps(response.body);
 
