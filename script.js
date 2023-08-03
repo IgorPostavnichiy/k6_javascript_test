@@ -1,63 +1,89 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { parseHTML } from 'k6/html';
 import { Counter } from 'k6/metrics';
+import { sleep } from 'k6';
 
-let appsVisited = 0;
-let similarAppsFound = new Counter('similar_apps_found');
+const allErrors = new Counter('error_counter');
+const successfulPagesCounter = new Counter('successful_pages');
+
+export let options = {
+  vus: 1,
+  duration: '10m', // Adjust the duration to 10 minutes
+  thresholds: {
+    'error_counter': [
+      'count < 10', // 10 or fewer total errors are tolerated
+    ],
+  },
+};
+
+const BASE_URL = 'https://play.google.com/store/games';
+const MAX_PAGES = 100;
+let crawledPages = 0;
 
 export default function () {
-  const baseUrl = 'https://play.google.com/store/games';
-
-  // Запускаем краулер, начиная с раздела игр
-  crawlSimilarApps(baseUrl);
+  crawledPages = 0; // Reset the crawledPages counter for each new iteration
+  crawl(BASE_URL, 0);
 }
 
-function crawlSimilarApps(packageUrl) {
-  if (appsVisited >= 100) {
-    console.log('Reached 100 apps. Stopping...');
+function crawl(url, depth) {
+  if (crawledPages >= MAX_PAGES) {
     return;
   }
 
-  const response = http.get(packageUrl);
+  console.log('Crawling URL:', url);
 
-  check(response, {
-    'is status 200': (r) => r.status === 200,
-  });
+  try {
+    const response = http.get(url);
 
-  const similarApps = extractSimilarApps(response.body);
+    if (response.status === 200) {
+      successfulPagesCounter.add(1); // Increase the counter for successfully loaded pages
+      crawledPages++; // Increase the crawledPages counter
 
-  if (similarApps.length === 0) {
-    console.log(`No similar apps found for ${packageUrl}`);
-    return;
+      const body = response.body;
+      const parsedHTML = parseHTML(body);
+
+      // Find the block "Similar Apps"
+      const similarAppsBlock = parsedHTML.find('.LkLjZd.ScJHi.HPiPcc').first();
+
+      if (similarAppsBlock) {
+        // Find the first link in the "Similar Apps" block
+        const firstSimilarAppLink = similarAppsBlock.find('a').first();
+
+        if (firstSimilarAppLink) {
+          const similarAppURL = firstSimilarAppLink.attr('href');
+
+          // Make a request to the URL of the first similar app
+          http.get(similarAppURL);
+
+          // Check if there's an element with the class "captcha" on the page
+          const captchaElement = parsedHTML.find('.captcha').first();
+
+          if (captchaElement) {
+            allErrors.add(1); // Increase the error counter (captcha detected)
+            console.log('Captcha detected on URL:', url);
+          }
+        }
+      }
+
+      // Recursively crawl the next pages
+      const nextPageLink = parsedHTML.find('a.RDPZE').last();
+      if (nextPageLink) {
+        const nextPageURL = nextPageLink.attr('href');
+
+        // Check that nextPageURL is not empty and does not contain "#<nil>"
+        if (nextPageURL && nextPageURL !== '#<nil>') {
+          crawl(nextPageURL, depth + 1);
+        }
+      }
+    } else {
+      allErrors.add(1); // Increase the error counter (failed to load the page)
+      console.error('Failed to load URL:', url, '- Status:', response.status);
+    }
+  } catch (error) {
+    allErrors.add(1);
+    console.error('Error occurred while crawling URL:', url, '- Error:', error.message);
   }
 
-  appsVisited++;
-  similarAppsFound.add(similarApps.length);
-
-  for (const appPackage of similarApps) {
-    if (appPackage !== packageUrl) {
-      sleep(2); // Добавим задержку в 2 секунды между запросами
-      const appUrl = `https://play.google.com${appPackage}`;
-      crawlSimilarApps(appUrl);
-    }
-
-    if (appsVisited >= 100) {
-      console.log('Reached 100 apps. Stopping...');
-      return;
-    }
-  }
-}
-
-function extractSimilarApps(responseBody) {
-  const regex = /\/store\/apps\/details\?id=([\w.]+)/g;
-  const similarApps = [];
-  let match;
-
-  while ((match = regex.exec(responseBody)) !== null) {
-    if (match[1]) {
-      similarApps.push(match[1]);
-    }
-  }
-
-  return similarApps;
+  // Wait for a moment before proceeding to the next iteration
+  sleep(3);
 }
