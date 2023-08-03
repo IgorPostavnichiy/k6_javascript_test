@@ -1,57 +1,53 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { check } from 'k6';
 
 export let options = {
   vus: 1,
   iterations: 100,
 };
 
-const BASE_URL = 'https://play.google.com/store/apps/details?id=com.example.app';
-const visitedApps = new Set();
-
 export default function () {
-  crawlSimilarApps(BASE_URL);
+  const baseAppId = 'com.example.app'; // Замените на интересующее вас приложение
+
+  crawlSimilarApps(baseAppId, 0); // Запускаем краулер, начиная с базового приложения
 }
 
-function crawlSimilarApps(url) {
-  if (visitedApps.size >= 100) {
-    console.log('Crawling completed.');
+function crawlSimilarApps(packageName, attempts) {
+  if (attempts >= 100) {
+    console.log('Reached 100 clicks. Stopping...');
     return;
   }
 
-  if (visitedApps.has(url)) {
-    return;
-  }
+  const BASE_URL = `https://play.google.com/store/apps/details?id=${packageName}`;
+  const response = http.get(BASE_URL);
 
-  const response = http.get(url);
-
-  if (url === BASE_URL) {
-    check(response, {
-      'is status 200': (r) => r.status === 200,
-    });
-  }
-
-  visitedApps.add(url);
+  check(response, {
+    'is status 200': (r) => r.status === 200,
+  });
 
   const similarApps = extractSimilarApps(response.body);
-  for (const appPackage of similarApps) {
-    const appUrl = `https://play.google.com/store/apps/details?id=${appPackage}`;
-    if (!visitedApps.has(appUrl)) {
-      crawlSimilarApps(appUrl);
-    }
+
+  if (similarApps.length === 0) {
+    console.log(`No similar apps found for ${packageName}`);
+    return;
   }
 
-  // Wait for a short period between requests to avoid overwhelming the server
-  sleep(2);
+  for (const appPackage of similarApps) {
+    if (appPackage !== packageName) {
+      crawlSimilarApps(appPackage, attempts + 1);
+    }
+  }
 }
 
-function extractSimilarApps(html) {
-  const regex = /<a\s+class="Rb\+Ml"\s+href="\/store\/apps\/details\?id=([\w.]+)/g;
-  let match;
+function extractSimilarApps(responseBody) {
+  const regex = /\/store\/apps\/details\?id=([\w.]+)/g;
   const similarApps = [];
+  let match;
 
-  while ((match = regex.exec(html))) {
-    similarApps.push(match[1]);
+  while ((match = regex.exec(responseBody)) !== null) {
+    if (match[1]) {
+      similarApps.push(match[1]);
+    }
   }
 
   return similarApps;
