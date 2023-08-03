@@ -1,13 +1,13 @@
 import http from 'k6/http';
-import { exec } from 'k6/execution';
+import { check } from 'k6';
 
 export let options = {
-  vus: 10, // Количество виртуальных пользователей
-  iterations: 100, // Общее количество итераций
+  vus: 10,
+  iterations: 100,
 };
 
 export default function () {
-  crawlSimilarApps('com.example.app'); // Замените 'com.example.app' на начальный пакет вашего приложения на Google Play Store
+  crawlSimilarApps('com.example.app');
 }
 
 async function crawlSimilarApps(packageName) {
@@ -18,34 +18,28 @@ async function crawlSimilarApps(packageName) {
     'is status 200': (r) => r.status === 200,
   });
 
-  // Вместо использования chromium, мы будем использовать k6 как браузер.
-  const k6Browser = new exec.Browser();
+  const k6Browser = new k6.Browser();
   const context = k6Browser.newContext();
   const page = context.newPage();
 
-  // Загружаем страницу для обработки динамических элементов
   await page.goto(BASE_URL);
 
-  // Найдите блок "Похожие игры" и кликните по первой ссылке.
   const similarGamesLink = page.locator('.WHE7ib a');
   await Promise.all([page.waitForNavigation(), similarGamesLink.click()]);
 
-  // Проверьте, появляется ли на странице элемент с классом "captcha".
   const captchaElement = page.locator('.captcha');
   if (await captchaElement.isVisible()) {
     console.log('Captcha detected');
     return;
   }
 
-  // Если captcha не обнаружена, получим пакеты похожих приложений на этой странице
   const similarApps = await extractSimilarApps(page);
   for (const appPackage of similarApps) {
     if (appPackage !== packageName) {
-      crawlSimilarApps(appPackage); // Рекурсивно вызываем crawlSimilarApps для каждого похожего приложения
+      crawlSimilarApps(appPackage);
     }
   }
 
-  // Закрыть страницу и браузер после завершения обхода текущей страницы
   page.close();
   context.close();
 }
