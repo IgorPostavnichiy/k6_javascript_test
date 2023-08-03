@@ -6,8 +6,8 @@ let numIterations = 100;
 
 export let options = {
   vus: 1,
-  iterations: 1, // Используем одну итерацию, так как мы будем делать клики внутри одной итерации
-  duration: '10m', // Увеличиваем длительность выполнения до 10 минут
+  iterations: 1,
+  duration: '10m',
 };
 
 export let successfulLoads = new Counter('Successful Loads');
@@ -26,7 +26,11 @@ function crawlSimilarApps(packageName, appsVisited) {
   }
 
   const BASE_URL = `https://play.google.com/store/apps/details?id=${packageName}`;
-  const response = http.get(BASE_URL);
+
+  // Используем ожидание между запросами с помощью sleep
+  sleep(Math.random() * 5 + 5); // Ожидание от 5 до 10 секунд
+
+  const response = http.get(BASE_URL, { timeout: '30s' }); // Увеличиваем время ожидания для запроса
 
   check(response, {
     'is status 200': (r) => r.status === 200,
@@ -41,7 +45,6 @@ function crawlSimilarApps(packageName, appsVisited) {
 
   for (const appPackage of similarApps) {
     if (appPackage !== packageName) {
-      sleep(5);
       appsVisited++;
       crawlSimilarApps(appPackage, appsVisited);
 
@@ -69,3 +72,4 @@ function extractSimilarApps(responseBody) {
 
   return similarApps;
 }
+
