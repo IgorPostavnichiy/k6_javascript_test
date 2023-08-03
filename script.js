@@ -1,28 +1,29 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { Counter } from 'k6/metrics';
 
 export let options = {
   vus: 1,
-  iterations: 100,
+  iterations: 1, // Мы будем запускать только одну итерацию в функции crawlSimilarApps
 };
 
-let appsVisited = 0;
-let similarAppsFound = 0; // Счетчик найденных похожих приложений
+let appsVisited = new Counter('apps_visited');
+let similarAppsFound = new Counter('similar_apps_found');
 
 export default function () {
-  const baseAppId = 'https://play.google.com/store/apps/details?id=com.roblox.client';
+  const baseAppId = 'com.zeptolab.ctr.ads';
 
-  crawlSimilarApps(baseAppId);
-  console.log(`Found ${similarAppsFound} similar apps in 100 iterations.`);
+  crawlSimilarApps(baseAppId, 0);
+  console.log(`Found ${similarAppsFound.value} similar apps after 100 clicks.`);
 }
 
-function crawlSimilarApps(packageName) {
-  if (appsVisited >= 100) {
-    console.log('Reached 100 apps. Stopping...');
+function crawlSimilarApps(packageName, attempts) {
+  if (attempts >= 100) {
+    console.log('Reached 100 clicks. Stopping...');
     return;
   }
 
-  const BASE_URL = `https://play.google.com/store/games/details?id=${packageName}`;
+  const BASE_URL = `https://play.google.com/store/apps/details?id=${packageName}`;
   const response = http.get(BASE_URL);
 
   check(response, {
@@ -39,9 +40,9 @@ function crawlSimilarApps(packageName) {
   for (const appPackage of similarApps) {
     if (appPackage !== packageName) {
       sleep(5);
-      appsVisited++;
-      similarAppsFound++; // Увеличиваем счетчик найденных похожих приложений
-      crawlSimilarApps(appPackage);
+      appsVisited.add(1);
+      similarAppsFound.add(1);
+      crawlSimilarApps(appPackage, attempts + 1);
     }
   }
 }
