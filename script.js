@@ -1,44 +1,53 @@
 import http from 'k6/http';
-import { Counter } from 'k6/metrics';
-import { sleep } from 'k6';
-
-let numIterations = 100;
-let appCounter = 0;
-let clickCounter = 0;
+import { check, sleep, Counter } from 'k6';
 
 export let options = {
   vus: 1,
-  duration: '20m', // Set the duration of the test execution
+  iterations: 100,
 };
 
-export let successfulLoads = new Counter('Successful Loads');
+let appsVisited = 0;
+let similarAppsFound = new Counter('similar_apps_found');
 
 export default function () {
-  const baseAppId = 'com.sinyee.babybus.world';
-  crawlSimilarApps(baseAppId);
+  const baseUrl = 'https://play.google.com/store/games';
+
+  // Запускаем краулер, начиная с раздела игр
+  crawlSimilarApps(baseUrl);
 }
 
-function crawlSimilarApps(packageName) {
-  if (successfulLoads.value >= 100) {
-    console.log('Achieved 100 successful tests. Test completion.');
+function crawlSimilarApps(packageUrl) {
+  if (appsVisited >= 100) {
+    console.log('Reached 100 apps. Stopping...');
     return;
   }
 
-  const BASE_URL = `https://play.google.com/store/apps/details?id=${packageName}`;
-  sleep(Math.random() * 5 + 5);
+  const response = http.get(packageUrl);
 
-  const response = http.get(BASE_URL, { timeout: '30s' });
-  successfulLoads.add(1);
-
-  appCounter++;
-  console.log(`Application tested: ${packageName}, Total applications tested: ${appCounter}`);
+  check(response, {
+    'is status 200': (r) => r.status === 200,
+  });
 
   const similarApps = extractSimilarApps(response.body);
 
+  if (similarApps.length === 0) {
+    console.log(`No similar apps found for ${packageUrl}`);
+    return;
+  }
+
+  appsVisited++;
+  similarAppsFound.add(similarApps.length);
+
   for (const appPackage of similarApps) {
-    if (appPackage !== packageName && clickCounter < 100) {
-      clickCounter++;
-      crawlSimilarApps(appPackage);
+    if (appPackage !== packageUrl) {
+      sleep(2); // Добавим задержку в 2 секунды между запросами
+      const appUrl = `https://play.google.com${appPackage}`;
+      crawlSimilarApps(appUrl);
+    }
+
+    if (appsVisited >= 100) {
+      console.log('Reached 100 apps. Stopping...');
+      return;
     }
   }
 }
