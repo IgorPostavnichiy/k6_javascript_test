@@ -1,5 +1,6 @@
 import http from 'k6/http';
-import { check, sleep, Counter } from 'k6';
+import { check, sleep } from 'k6';
+import { Counter } from 'k6/metrics';
 
 let appsVisited = 0;
 let similarAppsFound = new Counter('similar_apps_found');
@@ -23,7 +24,7 @@ function crawlSimilarApps(packageUrl) {
     'is status 200': (r) => r.status === 200,
   });
 
-  const similarApps = extractSimilarApps(response);
+  const similarApps = extractSimilarApps(response.body);
 
   if (similarApps.length === 0) {
     console.log(`No similar apps found for ${packageUrl}`);
@@ -47,12 +48,11 @@ function crawlSimilarApps(packageUrl) {
   }
 }
 
-function extractSimilarApps(response) {
+function extractSimilarApps(responseBody) {
   const regex = /\/store\/apps\/details\?id=([\w.]+)/g;
   const similarApps = [];
-  const responseBody = response.body; // Получаем тело ответа
-
   let match;
+
   while ((match = regex.exec(responseBody)) !== null) {
     if (match[1]) {
       similarApps.push(match[1]);
