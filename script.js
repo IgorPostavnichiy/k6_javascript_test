@@ -1,25 +1,22 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { Counter } from 'k6/metrics';
 
 export let options = {
   vus: 1,
-  iterations: 1, // Мы будем запускать только одну итерацию в функции crawlSimilarApps
+  iterations: 100,
 };
 
-let appsVisited = new Counter('apps_visited');
-let similarAppsFound = new Counter('similar_apps_found');
+let appsVisited = 0;
 
 export default function () {
-  const baseAppId = 'com.zeptolab.ctr.ads';
+  const baseAppId = 'com.sinyee.babybus.world';
 
-  crawlSimilarApps(baseAppId, 0);
-  console.log(`Found ${similarAppsFound.value} similar apps after 100 clicks.`);
+  crawlSimilarApps(baseAppId);
 }
 
-function crawlSimilarApps(packageName, attempts) {
-  if (attempts >= 100) {
-    console.log('Reached 100 clicks. Stopping...');
+function crawlSimilarApps(packageName) {
+  if (appsVisited >= 100) {
+    console.log('Reached 100 apps. Stopping...');
     return;
   }
 
@@ -37,13 +34,11 @@ function crawlSimilarApps(packageName, attempts) {
     return;
   }
 
-  appsVisited.add(1);
-
   for (const appPackage of similarApps) {
     if (appPackage !== packageName) {
       sleep(5);
-      similarAppsFound.add(1);
-      crawlSimilarApps(appPackage, attempts + 1);
+      appsVisited++;
+      crawlSimilarApps(appPackage);
     }
   }
 }
@@ -56,6 +51,7 @@ function extractSimilarApps(responseBody) {
   while ((match = regex.exec(responseBody)) !== null) {
     if (match[1]) {
       similarApps.push(match[1]);
+      console.log(`Found similar app: ${match[1]}`);
     }
   }
 
