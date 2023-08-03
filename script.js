@@ -7,11 +7,13 @@ export let options = {
 };
 
 let appsVisited = 0;
+let similarAppsFound = 0; // Счетчик найденных похожих приложений
 
 export default function () {
-  const baseAppId = 'com.sinyee.babybus.world';
+  const baseAppId = 'https://play.google.com/store/apps/details?id=com.roblox.client';
 
   crawlSimilarApps(baseAppId);
+  console.log(`Found ${similarAppsFound} similar apps in 100 iterations.`);
 }
 
 function crawlSimilarApps(packageName) {
@@ -20,7 +22,7 @@ function crawlSimilarApps(packageName) {
     return;
   }
 
-  const BASE_URL = `https://play.google.com/store/apps/details?id=${packageName}`;
+  const BASE_URL = `https://play.google.com/store/games/details?id=${packageName}`;
   const response = http.get(BASE_URL);
 
   check(response, {
@@ -38,6 +40,7 @@ function crawlSimilarApps(packageName) {
     if (appPackage !== packageName) {
       sleep(5);
       appsVisited++;
+      similarAppsFound++; // Увеличиваем счетчик найденных похожих приложений
       crawlSimilarApps(appPackage);
     }
   }
@@ -51,7 +54,6 @@ function extractSimilarApps(responseBody) {
   while ((match = regex.exec(responseBody)) !== null) {
     if (match[1]) {
       similarApps.push(match[1]);
-      console.log(`Found similar app: ${match[1]}`);
     }
   }
 
