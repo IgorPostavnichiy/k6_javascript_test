@@ -8,8 +8,7 @@ let clickCounter = 0;
 
 export let options = {
   vus: 1,
-  iterations: numIterations, // Устанавливаем количество итераций прямо здесь
-  duration: null, // Убираем указание длительности, чтобы использовать только количество итераций
+  duration: '20m', // Устанавливаем длительность выполнения теста
 };
 
 export let successfulLoads = new Counter('Successful Loads');
@@ -20,6 +19,11 @@ export default function () {
 }
 
 function crawlSimilarApps(packageName) {
+  if (successfulLoads.value >= 100) {
+    console.log('Достигнуто 100 успешных проверок. Завершение теста.');
+    return;
+  }
+
   const BASE_URL = `https://play.google.com/store/apps/details?id=${packageName}`;
   sleep(Math.random() * 5 + 5);
 
@@ -30,11 +34,6 @@ function crawlSimilarApps(packageName) {
   console.log(`Проверено приложение: ${packageName}, Всего проверено приложений: ${appCounter}`);
 
   const similarApps = extractSimilarApps(response.body);
-
-  if (similarApps.length === 0 || clickCounter >= 100) {
-    console.log('Завершение проверки приложений.');
-    return;
-  }
 
   for (const appPackage of similarApps) {
     if (appPackage !== packageName && clickCounter < 100) {
