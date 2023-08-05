@@ -87,13 +87,4 @@ function crawl(url, depth) {
   // Wait for a moment before proceeding to the next iteration
   sleep(3);
 }
-<<<<<<< HEAD
-<<<<<<< HEAD
 
-
-=======
->>>>>>> f38e2b6 (add changes file)
-=======
-
-
->>>>>>> eaba1f1 (add changes file)
