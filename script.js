@@ -1,32 +1,24 @@
 import http from 'k6/http';
-import { parseHTML } from 'k6/html';
-import { Counter } from 'k6/metrics';
 import { sleep } from 'k6';
 
-const allErrors = new Counter('error_counter');
-const successfulPagesCounter = new Counter('successful_pages');
+const MAX_CLICKS = 100; // Максимальное количество кликов
+let clickCounter = 0;
 
 export let options = {
   vus: 1,
-  duration: '10m', // Adjust the duration to 10 minutes
-  thresholds: {
-    'error_counter': [
-      'count < 10', // 10 or fewer total errors are tolerated
-    ],
-  },
+  duration: '10m',
 };
 
 const BASE_URL = 'https://play.google.com/store/games';
-const MAX_PAGES = 100;
-let crawledPages = 0;
 
 export default function () {
-  crawledPages = 0; // Reset the crawledPages counter for each new iteration
-  crawl(BASE_URL, 0);
+  clickCounter = 0; // Сбрасываем счетчик кликов перед каждой новой итерацией
+  crawl(BASE_URL);
 }
 
-function crawl(url, depth) {
-  if (crawledPages >= MAX_PAGES) {
+function crawl(url) {
+  if (clickCounter >= MAX_CLICKS) {
+    console.log('Reached 100 clicks. Stopping the script.');
     return;
   }
 
@@ -36,55 +28,24 @@ function crawl(url, depth) {
     const response = http.get(url);
 
     if (response.status === 200) {
-      successfulPagesCounter.add(1); // Increase the counter for successfully loaded pages
-      crawledPages++; // Increase the crawledPages counter
-
       const body = response.body;
-      const parsedHTML = parseHTML(body);
 
-      // Find the block "Similar Apps"
-      const similarAppsBlock = parsedHTML.find('.LkLjZd.ScJHi.HPiPcc').first();
+      // Проверяем, что страница содержит информацию об игре
+      if (body.includes('class="oocvOe">Install</button>')) {
+        clickCounter++; // Увеличиваем счетчик кликов
 
-      if (similarAppsBlock) {
-        // Find the first link in the "Similar Apps" block
-        const firstSimilarAppLink = similarAppsBlock.find('a').first();
-
-        if (firstSimilarAppLink) {
-          const similarAppURL = firstSimilarAppLink.attr('href');
-
-          // Make a request to the URL of the first similar app
-          http.get(similarAppURL);
-
-          // Check if there's an element with the class "captcha" on the page
-          const captchaElement = parsedHTML.find('.captcha').first();
-
-          if (captchaElement) {
-            allErrors.add(1); // Increase the error counter (captcha detected)
-            console.log('Captcha detected on URL:', url);
-          }
+        // Находим ссылку на следующую игру
+        const nextGameLink = body.match(/href="\/store\/apps\/details[^"]+/);
+        if (nextGameLink) {
+          const nextGameURL = `https://play.google.com${nextGameLink[0].substring(6)}`;
+          crawl(nextGameURL);
         }
       }
-
-      // Recursively crawl the next pages
-      const nextPageLink = parsedHTML.find('a.RDPZE').last();
-      if (nextPageLink) {
-        const nextPageURL = nextPageLink.attr('href');
-
-        // Check that nextPageURL is not empty and does not contain "#<nil>"
-        if (nextPageURL && nextPageURL !== '#<nil>') {
-          crawl(nextPageURL, depth + 1);
-        }
-      }
-    } else {
-      allErrors.add(1); // Increase the error counter (failed to load the page)
-      console.error('Failed to load URL:', url, '- Status:', response.status);
     }
   } catch (error) {
-    allErrors.add(1);
     console.error('Error occurred while crawling URL:', url, '- Error:', error.message);
   }
 
-  // Wait for a moment before proceeding to the next iteration
+  // Ждем некоторое время перед переходом к следующей итерации
   sleep(3);
 }
-
